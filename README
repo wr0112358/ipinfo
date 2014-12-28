@@ -1,0 +1,53 @@
+
+What
+
+Reads ip addresses with optional prefix from arguments and dumps information
+about them.
+Aim is to gather all information there is about an internet address and print it
+in a readable manner for better understanding. It seems, that ipcalc should provide
+this functionality, but on fedora it doesn't.
+
+
+Examples
+
+$ make all
+
+$ ./ipinfo
+Nothing to do.
+ipinfo 0.1
+Usage: ./ipinfo[OPTION]
+	-c, --color	attempts to improve readability by colorizing output. messes up shell redirects.
+	-l, --localifs	print local interface addresses
+	-v	increase verbosity, can be specified  up to 3 times
+
+$ ./ipinfo  -vv fe80::5054:ff:fec6:cb2d/64
+
+"fe80::5054:ff:fec6:cb2d/64" ->  {
+  o link local unicast address. prefix fe80::/10
+  o not routed, used for Neighbour Discovery
+  o dynamic assignment with EUI64 or random number or manual assignment.
+  o all addresses not in range ff00::/8 are unicast addresses. A unicast address can also be used as anycast address.
+  o interface id contains an EUI64 unique identifier(RFC 2373). Address was most likely automatically assigned with SLAAC. 
+    mac: 52:54:0:c6:cb:2d
+
+  o subnet is: fe80::
+
+
+  subnet prefix interface id
+  11111110 10000000 : 00000000 00000000 : 00000000 00000000 : 00000000 00000000 : ^00001010 01010100 : 00000000 11111111 : 11111110 11000110 : 11001011 00101101
+}
+
+$ ./ipinfo -v  ff01::1
+
+"ff01::1" ->  {
+  o permanent multicast address. prefix ff00::/8. scope: node local
+    | ff | 4bits-flag | 4bits-scope | 112 bits group id |.
+    IANA assigned multiast address: node local all nodes address
+
+  0000000111111111 0000000000000000 : 0 0 : 0 0 : 0 0 : 0 0 : 0 0 : 0 0 : 0000000000000000 0000000000000000
+}
+
+
+License
+
+Copyright (C) 2014 Reiter Wolfgang wr0112358@gmail.com See the LICENSE file for license rights and limitations.
