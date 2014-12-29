@@ -259,7 +259,7 @@ std::string ipv6_314_rule(const sockaddr_storage &sa, const config_type::output_
 void print_ula_info(const sockaddr_storage &sa, const config_type::output_config_type &output_config,
                            const std::string &print_prefix)
 {
-    std::cout << print_prefix << "ULA fc00::/7 address(RFC 4193): " << " | 7 bits prefix | L bit "
+    std::cout << print_prefix << " | 7 bits prefix | L bit "
         "| 40 bits pseudo-random global id | 16 bits subnet id | 64 bits interface id|\n";
     //   -> global id == last 40 bits of SHA1(EUI64 + NTP-64-bit time_stamp)
 }
@@ -279,14 +279,14 @@ void print_ip6_addr(const sockaddr_storage &sa, uint8_t prefix,
                                 + "A prefix size of 127 is typically chosen for securyity reasons.(RFC 6164)\n");
             else if(prefix % 4 != 0)
                 std::cout << ct(output_config.error_color, print_prefix
-                                + "A prefix size not dividible by 4 means subnetting was not done on nibble boundaries.\n");
+                                + "o A prefix size not dividible by 4 means subnetting was not done on nibble\n"
+                                + print_prefix + "  boundaries.\n");
 
             
 
             if(prefix > 64)
                 std::cout << ct(output_config.info_color, print_prefix
-                                + "A prefix size >64 disables SLAAC since EUI64 needs 64bit"
-                                " room in the interface id part.\n");
+                                + "A prefix size >64 disables SLAAC since EUI64 uses 64bit interface ids.\n");
         }
     }
 
@@ -305,13 +305,13 @@ void print_ip6_addr(const sockaddr_storage &sa, uint8_t prefix,
         const auto &sa6 = ipv6_util::get_in6addr(sa);
         std::cout << print_prefix;
         for(size_t i = 0, i16 = 0; i < 16; i++) {
-            if(ipv6_util::get_in6addr16(sa6)[i16] == 0)
-                std::cout << "0";
-            else
-                std::cout << ip_util::dump_bin(ipv6_util::get_in6addr16(sa6)[i]);
+//            if(ipv6_util::get_in6addr16(sa6)[i16] == 0)
+//                std::cout << "0";
+//            else
+            std::cout << ip_util::dump_bin(ipv6_util::get_in6addr8(sa6)[i]);
             if(i % 2 && i != 15)
                 std::cout << " : ";
-            else
+            else if(i != 15)
                 std::cout << " ";
 
             if(i%2)
@@ -337,9 +337,9 @@ void print_ip6_addr(const sockaddr_storage &sa, uint8_t prefix,
                             std::cout << "^";
                             once = false;
                         }
-                        std::cout << std::string(1, bin[j - 1]);
+                        std::cout << std::string(1, bin[bin.length() - j]);
                     } else {
-                        std::cout << ct(output_config.subnet_color, bin[j - 1]);
+                        std::cout << ct(output_config.subnet_color, bin[bin.length() - j]);
                     }
 
             } else if(prefix >= bit_count){
@@ -716,7 +716,8 @@ void print_addr_type_info(config_type::record_type::addr_type type,
     if(ipv6_util::is_ipv6(addr) && type != config_type::record_type::IPV6_MULTICAST) {
         std::cout << ct(output_config.info_color, print_prefix + "o all addresses not in range ")
                   << ct(output_config.addr_color, "ff00::/8")
-                  << ct(output_config.info_color, " are unicast addresses. A unicast address can also be used as anycast address.\n");
+                  << ct(output_config.info_color, " are unicast addresses. A unicast\n"
+                        + print_prefix + "  address can also be used as anycast address.\n");
         
     }
 
@@ -734,7 +735,7 @@ void print_addr_type_info(config_type::record_type::addr_type type,
                                          + ip_util::to_hex_string((int)mac[5]) + "\n");
                 std::cout << ct(output_config.info_color, print_prefix
                                 + "o interface id contains an EUI64 unique identifier(RFC 2373). "
-                                "Address was most likely automatically assigned with SLAAC.")
+                                "Address was\n" + print_prefix + "  most likely automatically assigned with SLAAC.")
                           << ct(output_config.addr_color, std::move(macstr)) << "\n";
                     
                 break;
@@ -747,8 +748,8 @@ void print_addr_type_info(config_type::record_type::addr_type type,
         case config_type::record_type::ROUTER_ANYCAST:
             if(type != config_type::record_type::IPV6_MULTICAST)
                 std::cout << ct(output_config.info_color, print_prefix
-                                + "o has the format of a router anycast address(RFC 4291): "
-                                "| n-bits subnet | 128-n 0-bits |\n");
+                                + "o has the format of a router anycast address(RFC 4291):\n"
+                                + print_prefix + "  | n-bits subnet | 128-n 0-bits |\n");
             break;
         case config_type::record_type::SOLICITED_NODE_MULTICAST:
             std::cout << ct(output_config.info_color, print_prefix
@@ -832,25 +833,27 @@ bool print_information(const config_type &config)
         ipv6_util::mac48_from_eui64(remaced, eui64);
 
         std::cout << "\n\"" << ifinfo.ifname << "\": mac: "
-                  << ip_util::to_hex_string((int)ifinfo.mac48[0]) << ":"
-                  << ip_util::to_hex_string((int)ifinfo.mac48[1]) << ":"
-                  << ip_util::to_hex_string((int)ifinfo.mac48[2]) << ":"
-                  << ip_util::to_hex_string((int)ifinfo.mac48[3]) << ":"
-                  << ip_util::to_hex_string((int)ifinfo.mac48[4]) << ":"
-                  << ip_util::to_hex_string((int)ifinfo.mac48[5])
+                  << util::ct(config.output_config.addr_color,
+                              ip_util::to_hex_string((int)ifinfo.mac48[0]) + ":"
+                              + ip_util::to_hex_string((int)ifinfo.mac48[1]) + ":"
+                              + ip_util::to_hex_string((int)ifinfo.mac48[2]) + ":"
+                              + ip_util::to_hex_string((int)ifinfo.mac48[3]) + ":"
+                              + ip_util::to_hex_string((int)ifinfo.mac48[4]) + ":"
+                              + ip_util::to_hex_string((int)ifinfo.mac48[5]))
                   << " -> eui64(mac): "
-                  << ip_util::to_hex_string((int)eui64[0])
-                  << ip_util::to_hex_string((int)eui64[1]) << ":"
-                  << ip_util::to_hex_string((int)eui64[2])
-                  << ip_util::to_hex_string((int)eui64[3]) << ":"
-                  << ip_util::to_hex_string((int)eui64[4])
-                  << ip_util::to_hex_string((int)eui64[5]) << ":"
-                  << ip_util::to_hex_string((int)eui64[6])
-                  << ip_util::to_hex_string((int)eui64[7])
+                  << util::ct(config.output_config.addr_color,
+                              ip_util::to_hex_string((int)eui64[0])
+                              + ip_util::to_hex_string((int)eui64[1]) + ":"
+                              + ip_util::to_hex_string((int)eui64[2])
+                              + ip_util::to_hex_string((int)eui64[3]) + ":"
+                              + ip_util::to_hex_string((int)eui64[4])
+                              + ip_util::to_hex_string((int)eui64[5]) + ":"
+                              + ip_util::to_hex_string((int)eui64[6])
+                              + ip_util::to_hex_string((int)eui64[7]))
                   << "\n{";
 
         for(const auto &ifaddr: ifinfo.if_records) {
-            std::cout << "\n  \"" << ip_util::ntop(ifaddr.addr) << "\" -> " << " {\n";
+            std::cout << "\n  \"" << util::ct(config.output_config.addr_color, ip_util::ntop(ifaddr.addr)) << "\" -> " << " {\n";
             print_record(ifaddr, config.output_config, "    ");
             std::cout << "  }\n";
         }
@@ -1024,9 +1027,10 @@ void usage(int argc, char *argv[])
 {
     std::cerr << "ipinfo 0.1\n"
               << "Usage: " << argv[0] << "[OPTION]\n"
-              << "\t-c, --color\tattempts to improve readability by colorizing output. messes up shell redirects.\n"
+              << "\t-c, --color\tattempts to improve readability by colorizing output."
+              << "\n\t\t\tmesses up shell redirects.\n"
               << "\t-l, --localifs\tprint local interface addresses\n"
-              << "\t-v\tincrease verbosity, can be specified  up to 3 times\n";
+              << "\t-v\t\tincrease verbosity, can be specified  up to 3 times\n";
 }
 
 int main(int argc, char *argv[])
