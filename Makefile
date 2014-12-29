@@ -120,6 +120,19 @@ test_solicited_node:
 		ff02:0:0:0:0:1:ffaa:aa/104 \
 		ff02:0:0:0:0:1:ffbb:bb
 
+test_nat64:
+	./ipinfo -vvvc \
+		64:ff9b::192.0.2.1 \
+		64:ff9b::1 \
+		64:ff9b::
+
+test_special_v6_2:
+	./ipinfo -vvvc \
+		2001:: \
+		2001:db8:: \
+		2001:20:: \
+		2001:10:: \
+
 FLAGS=-vv
 
 showoff_color: FLAGS=-cvvv

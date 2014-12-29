@@ -2,14 +2,13 @@
 
 Missing:
  o ipv4 stuff: bit print and address types, see ipv4_util.hh
+   http://en.wikipedia.org/wiki/Reserved_IP_addresses#Reserved_IPv4_addresses
  o multicast groups
  o port to bsds, some of the socket stuff won't be available, like AF_PACKET
-
  o accept /proc/net/igmp6 address format
  o zoneids
  o integrate ipv6_util::idx16_longest_all0_hextet
-
- http://en.wikipedia.org/wiki/Reserved_IP_addresses#Reserved_IPv4_addresses
+ o registered address space: http://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.txt
 
 */
 
@@ -54,11 +53,12 @@ struct config_type {
             IPV6_MULTICAST,
             IPV6_V4MAPPED,
             IPV6_V4COMPAT,
+            IPV6_NAT64,
+
             IPV6_ULA,
             IPV6_GLOBAL_UNICAST,
             IPV6_LINK_LOCAL,
             IPV6_IETF_RESERVED,
-            IPV6_6TO4,
             IPV6_DEPRECATED_SITE_LOCAL,
         } type;
 
@@ -80,7 +80,15 @@ struct config_type {
             SUBNET_FILLED,
 
             ROUTER_ANYCAST,
-            SOLICITED_NODE_MULTICAST
+            SOLICITED_NODE_MULTICAST,
+
+            // special global unicast address types
+            IPV6_DISCARDPREFIX,
+            IPV6_TEREDO,
+            IPV6_ORCHID,
+            IPV6_ORCHIDV2,
+            IPV6_DOC,
+            IPV6_6TO4,
         };
 
         std::vector<addr_attr> attrs;
@@ -116,16 +124,6 @@ struct config_type {
 
 bool collect_ip6_addr_info(config_type::record_type &addr_record)
 {
-    // TODO: fill in some more checks from here:
-    // http://www.iana.org/assignments/ipv6-address-space/ipv6-address-space.txt
-    // 
-    // http://www.sabi.co.uk/Notes/swIPv6Prefixes.html
-    // https://blog.icann.org/wp-content/uploads/2010/07/ipv6-address-types.pdf
-
-    // mostly uptodate rfc: http://tools.ietf.org/search/rfc4291
-
-    // nat64 rfc6146 64:ff9b::/96
-
     const auto &a = ipv6_util::get_in6addr(addr_record.addr);
     if(ipv6_util::is_in6addr_unspecified(a))
         addr_record.type = config_type::record_type::IPV6_UNSPECIFIED;
@@ -143,6 +141,8 @@ bool collect_ip6_addr_info(config_type::record_type &addr_record)
         addr_record.type = config_type::record_type::IPV6_V4MAPPED;
     else if(ipv6_util::is_in6addr_v4compat(a))
         addr_record.type = config_type::record_type::IPV6_V4COMPAT;
+    else if(ipv6_util::is_in6addr_nat64(a))
+        addr_record.type = config_type::record_type::IPV6_NAT64;
     else if(ipv6_util::is_in6addr_sitelocal(a))
         addr_record.type = config_type::record_type::IPV6_DEPRECATED_SITE_LOCAL;
     else if(ipv6_util::is_in6addr_ietf_reserved(a))
@@ -156,9 +156,21 @@ bool collect_ip6_addr_info(config_type::record_type &addr_record)
     if(ipv6_util::is_in6addr_subnet_router_anycast(a, addr_record.prefix))
         addr_record.attrs.push_back(config_type::record_type::ROUTER_ANYCAST);
 
-    // overrides global unicast
-    if(ipv6_util::is_in6addr_6to4(a))
-        addr_record.type = config_type::record_type::IPV6_6TO4;
+    if(addr_record.type == config_type::record_type::IPV6_GLOBAL_UNICAST) {
+        // special global unicast addresses
+        if(ipv6_util::is_in6addr_6to4(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_6TO4);
+        else if(ipv6_util::is_in6addr_discardprefix(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_DISCARDPREFIX);
+        else if(ipv6_util::is_in6addr_teredotunneling(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_TEREDO);
+        else if(ipv6_util::is_in6addr_orchid(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_ORCHID);
+        else if(ipv6_util::is_in6addr_orchidv2(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_ORCHIDV2);
+        else if(ipv6_util::is_in6addr_doc(a))
+            addr_record.attrs.push_back(config_type::record_type::IPV6_DOC);
+    }
 
     // prefix specified and unicast?
     if(addr_record.prefix > 0 && ipv6_util::is_in6addr_unicast(a)) {
@@ -660,6 +672,10 @@ void print_addr_type_info(config_type::record_type::addr_type type,
         std::cout << ct(output_config.info_color, print_prefix
                         + "o deprecated IPv4-compatible IPv6 address: | 80 0-bits | 16 0-bits | globally unique v4 addr |\n");
         break;
+    case config_type::record_type::IPV6_NAT64:
+        std::cout << ct(output_config.info_color, print_prefix
+                        + "o nat64 rfcs 6146, 6052. prefix: 63::ff9b::/96. low 32bits are the ipv4 addr.\n");
+        break;
     case config_type::record_type::IPV6_ULA:
         std::cout << ct(output_config.info_color, print_prefix
                         + "o unique local address(ULA)(RFC 4193). prefix fc00::/7\n");
@@ -680,10 +696,6 @@ void print_addr_type_info(config_type::record_type::addr_type type,
     case config_type::record_type::IPV6_IETF_RESERVED:
         std::cout << ct(output_config.info_color, print_prefix
                         + "o IETF reserved address.\n");
-        break;
-    case config_type::record_type::IPV6_6TO4:
-        std::cout << ct(output_config.info_color, print_prefix
-                        + "o 6to4 address.\n");
         break;
     case config_type::record_type::IPV6_DEPRECATED_SITE_LOCAL:
         std::cout << ct(output_config.info_color, print_prefix
@@ -726,7 +738,7 @@ void print_addr_type_info(config_type::record_type::addr_type type,
                           << ct(output_config.addr_color, std::move(macstr)) << "\n";
                     
                 break;
-        }
+                }
         case config_type::record_type::SUBNET_FILLED:
             std::cout << ct(output_config.info_color, print_prefix + "o subnet is: "
                             + std::string(ct(output_config.addr_color, ip_util::ntop(subnet)))
@@ -753,6 +765,31 @@ void print_addr_type_info(config_type::record_type::addr_type type,
                       << ct(output_config.info_color, print_prefix
                             + "  used for DAD and NDP algorithms.\n");
             break;
+        case config_type::record_type::IPV6_6TO4:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o 6to4 address.\n");
+            break;
+        case config_type::record_type::IPV6_DISCARDPREFIX:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o discard prefix rfc 6666.\n");
+            break;
+        case config_type::record_type::IPV6_TEREDO:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o teredo tunneling address rfc 4380.\n");
+            break;
+        case config_type::record_type::IPV6_ORCHID:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o ORCHID (Overlay Routable Cryptographic Hash Identifiers) deprecated prefix.\n");
+            break;
+        case config_type::record_type::IPV6_ORCHIDV2:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o ORCHID (Overlay Routable Cryptographic Hash Identifiers).\n");
+            break;
+        case config_type::record_type::IPV6_DOC:
+            std::cout << ct(output_config.info_color, print_prefix
+                            + "o documentation prefix.\n");
+            break;
+
         }
     }
 }

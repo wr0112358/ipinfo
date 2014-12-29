@@ -28,6 +28,12 @@ bool is_in6addr_linklocal(const in6_addr &a);
 bool is_in6addr_sitelocal(const in6_addr &a);
 bool is_in6addr_v4mapped(const in6_addr &a);
 bool is_in6addr_v4compat(const in6_addr &a);
+bool is_in6addr_nat64(const in6_addr &a);
+bool is_in6addr_discardprefix(const in6_addr &a);
+bool is_in6addr_teredotunneling(const in6_addr &a);
+bool is_in6addr_orchid(const in6_addr &a);
+bool is_in6addr_orchidv2(const in6_addr &a);
+bool is_in6addr_doc(const in6_addr &a);
 bool is_in6addr_multicast(const in6_addr &a);
 // multicast scope field tests
 bool is_in6addr_multicast_nodelocal(const in6_addr &a);
@@ -165,6 +171,45 @@ inline bool ipv6_util::is_in6addr_v4mapped(const in6_addr &a)
 inline bool ipv6_util::is_in6addr_v4compat(const in6_addr &a)
 {
     return IN6_IS_ADDR_V4COMPAT(&a);
+}
+
+inline bool ipv6_util::is_in6addr_nat64(const in6_addr &a)
+{
+    // 64:ff9b::/96
+    return ((const uint32_t *)(&a))[0] == htonl(0x0064ff9b)
+        && ((const uint32_t *)(&a))[1] == 0
+        && ((const uint32_t *)(&a))[2] == 0;
+}
+
+inline bool ipv6_util::is_in6addr_discardprefix(const in6_addr &a)
+{
+    // 100::/64
+    return ((const uint32_t *)(&a))[0] == htonl(0x01000000)
+        && ((const uint32_t *)(&a))[1] == 0;
+}
+
+inline bool ipv6_util::is_in6addr_teredotunneling(const in6_addr &a)
+{
+    // 2001::/32
+    return ((const uint32_t *)(&a))[0] == htonl(0x20010000);
+}
+
+inline bool ipv6_util::is_in6addr_orchid(const in6_addr &a)
+{
+    // 2001:10::/28
+    return (((const uint32_t *)(&a))[0] & htonl(0xfffffff0)) == htonl(0x20010010);
+}
+
+inline bool ipv6_util::is_in6addr_orchidv2(const in6_addr &a)
+{
+    // 2001:20::/28
+    return (((const uint32_t *)(&a))[0] & htonl(0xfffffff0)) == htonl(0x20010020);
+}
+
+inline bool ipv6_util::is_in6addr_doc(const in6_addr &a)
+{
+    // 2001:db8::/32
+    return ((const uint32_t *)(&a))[0] == htonl(0x20010db8);
 }
 
 inline bool ipv6_util::is_in6addr_multicast(const in6_addr &a)
