@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <sstream>
 #include <string>
+#include <type_traits>
 
 namespace ip_util {
 sockaddr_storage convert(const sockaddr &addr);
@@ -112,13 +113,12 @@ template<typename T> inline std::string ip_util::to_hex_string(T value)
 
 template<typename T> inline std::string ip_util::dump_bin(T val)
 {
-/*
-TODO:
-passing special types like: (sa6_8_t &) leads to:
-  terminate called after throwing an instance of 'std::invalid_argument'
-  what():  bitset::_M_copy_from_ptr
-This should be caught at compile time
-*/
+    // forbidden:
+    //ipv6_util::sa6_8_t x; ip_util::dump_bin(x);
+    //std::string x2; ip_util::dump_bin(x2);
+    static_assert(std::is_pod<T>::value && !std::is_compound<T>::value && !std::is_array<T>::value,
+                  "dump_bin only supports POD types.");
+
     std::bitset<sizeof(T) * 8> bin(val);
     std::ostringstream os;
     os << bin;
